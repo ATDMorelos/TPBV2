@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Sociodemográfico Rediseñado</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Roboto+Condensed:wght@400;700&display=swap" rel="stylesheet">
+    <!-- Leaflet.js for Map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <style>
+        :root {
+            --brand-dark-green: #2E3B2B;
+            --brand-green: #71785b;
+            --brand-gold: #bc9b73;
+            --brand-light-gray: #F3F4F6;
+            --sidebar-width: 280px;
+        }
+        body {
+            font-family: 'Roboto Condensed', sans-serif;
+            background-color: var(--brand-light-gray);
+            color: #374151;
+        }
+        h1, h2, h3, .kpi-value, .info-value {
+            font-family: 'Montserrat', sans-serif;
+        }
+        .card {
+            background-color: white;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+            border: 1px solid #E5E7EB;
+        }
+        .kpi-title {
+            font-family: 'Roboto Condensed', sans-serif;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: #6B7280;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+        }
+        .kpi-value {
+            font-size: 2.25rem; 
+            font-weight: 800;
+            color: var(--brand-dark-green);
+        }
+        .section-title {
+            font-size: 1.5rem; 
+            font-weight: 700;
+            color: var(--brand-dark-green);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        .section-title svg {
+            color: var(--brand-gold);
+        }
+
+        /* Layout Styles */
+        .sidebar {
+            width: var(--sidebar-width);
+            background-color: #ffffff;
+            border-right: 1px solid #E5E7EB;
+        }
+        .main-content {
+            margin-left: var(--sidebar-width);
+            width: calc(100% - var(--sidebar-width));
+        }
+
+        /* Responsive Styles */
+        @media (max-width: 1024px) {
+            .sidebar {
+                display: none;
+            }
+            .main-content {
+                margin-left: 0;
+                width: 100%;
+            }
+            .mobile-header {
+                display: flex;
+            }
+        }
+        
+        /* Print Styles */
+        @media print {
+            body {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+                background-color: white !important;
+                font-size: 9pt;
+                padding: 1cm;
+            }
+            .no-print {
+                display: none !important;
+            }
+            #print-report-container {
+                display: block !important;
+            }
+            .print-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                border-bottom: 2px solid #333;
+                padding-bottom: 1rem;
+                margin-bottom: 1.5rem;
+            }
+            .print-title-section {
+                text-align: right;
+            }
+            .print-section-title {
+                font-size: 1.2rem;
+                font-weight: 700;
+                color: var(--brand-dark-green);
+                margin-top: 1.5rem;
+                margin-bottom: 0.5rem;
+                border-bottom: 1px solid var(--brand-gold);
+                padding-bottom: 0.25rem;
+            }
+            .print-kpi-grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 1rem;
+            }
+            .print-card {
+                border: 1px solid #ccc;
+                border-radius: 0.5rem;
+                padding: 0.75rem;
+                text-align: center;
+                page-break-inside: avoid;
+            }
+            .print-card-title {
+                font-size: 0.7rem;
+                text-transform: uppercase;
+                color: #6B7280;
+                margin-bottom: 0.25rem;
+            }
+            .print-card-value {
+                font-size: 1.5rem;
+                font-weight: 700;
+                color: var(--brand-dark-green);
+            }
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 8pt;
+                page-break-inside: auto;
+            }
+            th, td {
+                border: 1px solid #ddd;
+                padding: 6px;
+                text-align: left;
+            }
+            th {
+                background-color: #f2f2f2 !important;
+            }
+            td.text-right, th.text-right {
+                text-align: right;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+
+    <!-- This container is ONLY for printing -->
+    <div id="print-report-container" class="hidden"></div>
+
+    <div class="container-fluid flex no-print">
+        <!-- Sidebar -->
+        <aside class="sidebar fixed top-0 left-0 h-screen p-6 flex-col space-y-8 no-print hidden lg:flex">
+            <div class="flex items-center justify-center">
+                <img src="https://cdn.prod.website-files.com/66d75f3897a0c14fc42017af/67d124efdfc13b41bfb24b65_Logo_Inicio.svg" alt="Logo TPBV" class="h-20" onerror="this.onerror=null; this.src='https://placehold.co/200x80/FFFFFF/2E3B2B?text=Logo';">
+            </div>
+            <div class="space-y-4">
+                <h2 class="font-bold text-lg text-gray-700">Filtros</h2>
+                <div>
+                    <label for="municipio-filter" class="block text-sm font-medium text-gray-700 mb-1">Municipio</label>
+                    <select id="municipio-filter" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-offset-1" style="--tw-ring-color: var(--brand-gold);"></select>
+                </div>
+                <div>
+                    <label for="localidad-filter" class="block text-sm font-medium text-gray-700 mb-1">Localidad</label>
+                    <select id="localidad-filter" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-offset-1" style="--tw-ring-color: var(--brand-gold);"></select>
+                </div>
+            </div>
+            <div class="pt-4 mt-auto">
+                 <button id="print-button" class="w-full bg-gray-700 text-white font-bold py-2 px-4 rounded-md hover:bg-gray-800 transition-colors flex items-center justify-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+                    Imprimir Reporte
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content w-full p-4 sm:p-6 lg:p-8">
+            <!-- Mobile Header -->
+            <div class="mobile-header lg:hidden items-center justify-between bg-white p-4 rounded-lg shadow-sm mb-6 no-print">
+                <img src="https://cdn.prod.website-files.com/66d75f3897a0c14fc42017af/67d124efdfc13b41bfb24b65_Logo_Inicio.svg" alt="Logo TPBV" class="h-12">
+                <button id="print-button-mobile" class="bg-gray-700 text-white font-bold py-2 px-4 rounded-md">Imprimir</button>
+            </div>
+            <div class="mobile-filters lg:hidden bg-white p-4 rounded-lg shadow-sm mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4 no-print">
+                <div>
+                    <label for="municipio-filter-mobile" class="block text-sm font-medium text-gray-700 mb-1">Municipio</label>
+                    <select id="municipio-filter-mobile" class="w-full p-2 border border-gray-300 rounded-md shadow-sm"></select>
+                </div>
+                <div>
+                    <label for="localidad-filter-mobile" class="block text-sm font-medium text-gray-700 mb-1">Localidad</label>
+                    <select id="localidad-filter-mobile" class="w-full p-2 border border-gray-300 rounded-md shadow-sm"></select>
+                </div>
+            </div>
+
+            <!-- Dashboard Content -->
+            <div id="dashboard-content" class="space-y-8">
+                <header>
+                    <h1 id="main-header-title" class="text-3xl font-bold text-gray-800">Seleccione una localidad</h1>
+                    <p class="text-gray-500">Datos actualizados para la localidad seleccionada.</p>
+                </header>
+                
+                <!-- KPIs -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="card text-center"><h2 class="kpi-title">Polígono</h2><p id="info-municipio" class="kpi-value">-</p></div>
+                    <div class="card text-center"><h2 class="kpi-title">Índice de Marginación (IMN 2020)</h2><p id="info-marginacion" class="kpi-value">-</p></div>
+                </div>
+
+                <!-- Comparative Table Section -->
+                <section id="comparative-section">
+                    <h2 class="section-title">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+                        Cuadro Comparativo del Municipio
+                    </h2>
+                    <div class="card overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th scope="col" class="px-4 py-2 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Localidad</th>
+                                    <th scope="col" class="px-4 py-2 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Pob. Total</th>
+                                    <th scope="col" class="px-4 py-2 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Pob. Femenina</th>
+                                    <th scope="col" class="px-4 py-2 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Pob. Masculina</th>
+                                    <th scope="col" class="px-4 py-2 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Viviendas</th>
+                                </tr>
+                            </thead>
+                            <tbody id="comparison-table-body" class="bg-white divide-y divide-gray-200"></tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- Map Section -->
+                <section id="map-container">
+                    <h2 class="section-title">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                        Ubicación Geográfica
+                    </h2>
+                    <div class="card h-[500px] p-2">
+                         <div id="map" class="w-full h-full rounded-md"></div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const dataSet = [
+            {"CVEGEO":170020021,"Municipio":"Atlatlahucan","Poligono":1,"Localidad":"Tlaltetelco (San Miguel Tlaltetelco)","POB1":2098,"POB42":1110,"POB84":988,"ECO1":885,"ECO28":808,"VIV0":806,"VIV7":34,"VIV10":177,"GM_2020_y":"Bajo","IMN_2020":0.859676,"Latitud":18.952159,"Longitud":-98.886945},
+            {"CVEGEO":170020058,"Municipio":"Atlatlahucan","Poligono":1,"Localidad":"Rancho Teoxtoc","POB1":23,"POB42":12,"POB84":11,"ECO1":7,"ECO28":10,"VIV0":42,"VIV7":2,"VIV10":4,"GM_2020_y":"Alto","IMN_2020":0.583311,"Latitud":18.953798,"Longitud":-98.895895},
+            {"CVEGEO":170020078,"Municipio":"Atlatlahucan","Poligono":1,"Localidad":"Colonia Alta Vista","POB1":47,"POB42":21,"POB84":26,"ECO1":22,"ECO28":12,"VIV0":46,"VIV7":2,"VIV10":6,"GM_2020_y":"Medio","IMN_2020":0.724567,"Latitud":18.971523,"Longitud":-98.888316},
+            {"CVEGEO":170020080,"Municipio":"Atlatlahucan","Poligono":1,"Localidad":"Linda Vista","POB1":20,"POB42":10,"POB84":10,"ECO1":7,"ECO28":8,"VIV0":21,"VIV7":3,"VIV10":3,"GM_2020_y":"Alto","IMN_2020":0.579843,"Latitud":18.969407,"Longitud":-98.891804},
+            {"CVEGEO":170030017,"Municipio":"Axochiapan","Poligono":2,"Localidad":"La Nopalera","POB1":412,"POB42":207,"POB84":205,"ECO1":196,"ECO28":95,"VIV0":106,"VIV7":10,"VIV10":31,"GM_2020_y":"Alto","IMN_2020":0.591122,"Latitud":18.571663,"Longitud":-98.742371},
+            {"CVEGEO":170030073,"Municipio":"Axochiapan","Poligono":2,"Localidad":"Campo Jicamal","POB1":183,"POB42":95,"POB84":88,"ECO1":94,"ECO28":32,"VIV0":57,"VIV7":7,"VIV10":21,"GM_2020_y":"Bajo","IMN_2020":0.843321,"Latitud":18.558818,"Longitud":-98.769521},
+            {"CVEGEO":170040106,"Municipio":"Ayala","Poligono":3,"Localidad":"Ampliación Chinameca","POB1":17,"POB42":9,"POB84":8,"ECO1":7,"ECO28":5,"VIV0":5,"VIV7":1,"VIV10":2,"GM_2020_y":"Alto","IMN_2020":0.554321,"Latitud":18.611188,"Longitud":-99.016804},
+            {"CVEGEO":170040139,"Municipio":"Ayala","Poligono":3,"Localidad":"El Crucero de Chinameca","POB1":61,"POB42":30,"POB84":31,"ECO1":36,"ECO28":13,"VIV0":25,"VIV7":0,"VIV10":4,"GM_2020_y":"Muy bajo","IMN_2020":0.934567,"Latitud":18.626111,"Longitud":-99.004167},
+            {"CVEGEO":170040168,"Municipio":"Ayala","Poligono":3,"Localidad":"Colonia Pablo Torres Burgos","POB1":15,"POB42":6,"POB84":9,"ECO1":11,"ECO28":1,"VIV0":7,"VIV7":0,"VIV10":1,"GM_2020_y":"Bajo","IMN_2020":0.867890,"Latitud":18.619196,"Longitud":-99.006067},
+            {"CVEGEO":170040186,"Municipio":"Ayala","Poligono":3,"Localidad":"Ampliación la Cucaracha","POB1":40,"POB42":20,"POB84":20,"ECO1":20,"ECO28":11,"VIV0":15,"VIV7":3,"VIV10":3,"GM_2020_y":"Alto","IMN_2020":0.561234,"Latitud":18.626411,"Longitud":-98.988651},
+            {"CVEGEO":170040188,"Municipio":"Ayala","Poligono":3,"Localidad":"Campo el Brasil","POB1":19,"POB42":9,"POB84":10,"ECO1":7,"ECO28":5,"VIV0":13,"VIV7":0,"VIV10":1,"GM_2020_y":"Muy bajo","IMN_2020":0.941122,"Latitud":18.626702,"Longitud":-98.995352},
+            {"CVEGEO":170040028,"Municipio":"Ayala","Poligono":3,"Localidad":"El Vergel","POB1":987,"POB42":483,"POB84":504,"ECO1":409,"ECO28":355,"VIV0":368,"VIV7":6,"VIV10":69,"GM_2020_y":"Bajo","IMN_2020":0.875432,"Latitud":18.59011378,"Longitud":-99.03458552},
+            {"CVEGEO":170060114,"Municipio":"Cuautla","Poligono":4,"Localidad":"Campo Carrizal","POB1":13,"POB42":6,"POB84":7,"ECO1":7,"ECO28":1,"VIV0":6,"VIV7":0,"VIV10":2,"GM_2020_y":"Alto","IMN_2020":0.589988,"Latitud":18.778763,"Longitud":-98.905898},
+            {"CVEGEO":170060136,"Municipio":"Cuautla","Poligono":4,"Localidad":"Ampliación Iztaccíhuatl","POB1":191,"POB42":95,"POB84":96,"ECO1":104,"ECO28":44,"VIV0":72,"VIV7":6,"VIV10":16,"GM_2020_y":"Bajo","IMN_2020":0.832145,"Latitud":18.794451,"Longitud":-98.909058},
+            {"CVEGEO":170080036,"Municipio":"Emiliano Zapata","Poligono":5,"Localidad":"Campo el Órgano","POB1":369,"POB42":192,"POB84":177,"ECO1":188,"ECO28":94,"VIV0":149,"VIV7":9,"VIV10":43,"GM_2020_y":"Bajo","IMN_2020":0.881234,"Latitud":18.830511,"Longitud":-99.175174},
+            {"CVEGEO":170080045,"Municipio":"Emiliano Zapata","Poligono":5,"Localidad":"Puente Colorado (Campo la Palma)","POB1":14,"POB42":5,"POB84":9,"ECO1":10,"ECO28":2,"VIV0":10,"VIV7":2,"VIV10":2,"GM_2020_y":"Muy alto","IMN_2020":0.398765,"Latitud":18.8332,"Longitud":-99.172564},
+            {"CVEGEO":170080057,"Municipio":"Emiliano Zapata","Poligono":5,"Localidad":"Colonia Modesto Rangel","POB1":345,"POB42":173,"POB84":172,"ECO1":182,"ECO28":79,"VIV0":125,"VIV7":12,"VIV10":36,"GM_2020_y":"Bajo","IMN_2020":0.876543,"Latitud":18.827052,"Longitud":-99.179111},
+            {"CVEGEO":170080072,"Municipio":"Emiliano Zapata","Poligono":5,"Localidad":"Ojo de Agua","POB1":60,"POB42":30,"POB84":30,"ECO1":33,"ECO28":9,"VIV0":17,"VIV7":2,"VIV10":8,"GM_2020_y":"Muy alto","IMN_2020":0.412345,"Latitud":18.820106,"Longitud":-99.165582},
+            {"CVEGEO":170090097,"Municipio":"Huitzilac","Poligono":6,"Localidad":"Los Hongos","POB1":108,"POB42":49,"POB84":59,"ECO1":54,"ECO28":22,"VIV0":54,"VIV7":7,"VIV10":11,"GM_2020_y":"Alto","IMN_2020":0.587654,"Latitud":19.063069,"Longitud":-99.238079},
+            {"CVEGEO":170090098,"Municipio":"Huitzilac","Poligono":6,"Localidad":"Barrio Tezoyo (El Cuartel)","POB1":202,"POB42":101,"POB84":101,"ECO1":106,"ECO28":52,"VIV0":75,"VIV7":1,"VIV10":18,"GM_2020_y":"Bajo","IMN_2020":0.823456,"Latitud":19.061796,"Longitud":-99.240149},
+            {"CVEGEO":170090099,"Municipio":"Huitzilac","Poligono":6,"Localidad":"Colonia Antonio Segura","POB1":121,"POB42":60,"POB84":61,"ECO1":69,"ECO28":25,"VIV0":61,"VIV7":3,"VIV10":12,"GM_2020_y":"Medio","IMN_2020":0.712345,"Latitud":19.053758,"Longitud":-99.235942},
+            {"CVEGEO":170090050,"Municipio":"Huitzilac","Poligono":6,"Localidad":"Lagunita","POB1":82,"POB42":38,"POB84":44,"ECO1":36,"ECO28":30,"VIV0":30,"VIV7":1,"VIV10":8,"GM_2020_y":"Medio","IMN_2020":0.734567,"Latitud":19.06260555,"Longitud":-99.24964178},
+            {"CVEGEO":170110069,"Municipio":"Jiutepec","Poligono":7,"Localidad":"Colonia Loma Bonita","POB1":360,"POB42":161,"POB84":199,"ECO1":222,"ECO28":66,"VIV0":225,"VIV7":48,"VIV10":38,"GM_2020_y":"Alto","IMN_2020":0.598765,"Latitud":18.870146,"Longitud":-99.147096},
+            {"CVEGEO":170110072,"Municipio":"Jiutepec","Poligono":7,"Localidad":"Colonia Luis Donaldo Colosio","POB1":135,"POB42":75,"POB84":60,"ECO1":43,"ECO28":54,"VIV0":57,"VIV7":3,"VIV10":11,"GM_2020_y":"Bajo","IMN_2020":0.812345,"Latitud":18.881877,"Longitud":-99.132808},
+            {"CVEGEO":170110078,"Municipio":"Jiutepec","Poligono":7,"Localidad":"Lomas de Chapultepec","POB1":172,"POB42":76,"POB84":96,"ECO1":79,"ECO28":54,"VIV0":66,"VIV7":3,"VIV10":20,"GM_2020_y":"Bajo","IMN_2020":0.834567,"Latitud":18.876027,"Longitud":-99.13486},
+            {"CVEGEO":170110083,"Municipio":"Jiutepec","Poligono":7,"Localidad":"Ampliación Chapultepec","POB1":116,"POB42":60,"POB84":56,"ECO1":67,"ECO28":13,"VIV0":40,"VIV7":7,"VIV10":12,"GM_2020_y":"Medio","IMN_2020":0.745678,"Latitud":18.870844,"Longitud":-99.141971},
+            {"CVEGEO":170110084,"Municipio":"Jiutepec","Poligono":7,"Localidad":"Cerro de la Corona","POB1":233,"POB42":129,"POB84":104,"ECO1":113,"ECO28":65,"VIV0":68,"VIV7":4,"VIV10":22,"GM_2020_y":"Bajo","IMN_2020":0.821234,"Latitud":18.883976,"Longitud":-99.13659},
+            {"CVEGEO":170120002,"Municipio":"Jojutla","Poligono":8,"Localidad":"Chisco","POB1":516,"POB42":250,"POB84":266,"ECO1":203,"ECO28":202,"VIV0":241,"VIV7":13,"VIV10":46,"GM_2020_y":"Bajo","IMN_2020":0.865432,"Latitud":18.548565,"Longitud":-99.235304},
+            {"CVEGEO":170120009,"Municipio":"Jojutla","Poligono":8,"Localidad":"Río Seco","POB1":238,"POB42":126,"POB84":112,"ECO1":89,"ECO28":93,"VIV0":131,"VIV7":8,"VIV10":13,"GM_2020_y":"Bajo","IMN_2020":0.871234,"Latitud":18.567643,"Longitud":-99.244183},
+            {"CVEGEO":170120014,"Municipio":"Jojutla","Poligono":8,"Localidad":"Vicente Aranda (San Rafael)","POB1":335,"POB42":161,"POB84":174,"ECO1":127,"ECO28":133,"VIV0":159,"VIV7":5,"VIV10":32,"GM_2020_y":"Bajo","IMN_2020":0.854321,"Latitud":18.561006,"Longitud":-99.238213},
+            {"CVEGEO":170130019,"Municipio":"Jonacatepec de Leandro Valle","Poligono":9,"Localidad":"El Puente Colorado","POB1":40,"POB42":18,"POB84":22,"ECO1":24,"ECO28":11,"VIV0":36,"VIV7":1,"VIV10":2,"GM_2020_y":"Bajo","IMN_2020":0.832145,"Latitud":18.65637067,"Longitud":-98.78643375},
+            {"CVEGEO":170130051,"Municipio":"Jonacatepec de Leandro Valle","Poligono":9,"Localidad":"Tetelilla","POB1":9,"POB42":6,"POB84":3,"ECO1":2,"ECO28":6,"VIV0":4,"VIV7":0,"VIV10":1,"GM_2020_y":"Alto","IMN_2020":0.587654,"Latitud":18.612861,"Longitud":-98.766259},
+            {"CVEGEO":170130053,"Municipio":"Jonacatepec de Leandro Valle","Poligono":9,"Localidad":"Colonia San Martín","POB1":41,"POB42":22,"POB84":19,"ECO1":19,"ECO28":8,"VIV0":14,"VIV7":1,"VIV10":6,"GM_2020_y":"Medio","IMN_2020":0.712345,"Latitud":18.618274,"Longitud":-98.778598},
+            {"CVEGEO":170130019,"Municipio":"Jonacatepec de Leandro Valle","Poligono":9,"Localidad":"El Puente Colorado","POB1":40,"POB42":18,"POB84":22,"ECO1":24,"ECO28":11,"VIV0":36,"VIV7":1,"VIV10":2,"GM_2020_y":"Bajo","IMN_2020":0.832145,"Latitud":18.6418027,"Longitud":-98.78414654},
+            {"CVEGEO":170180029,"Municipio":"Temixco","Poligono":10,"Localidad":"Campo Santa Cruz (La Joya)","POB1":15,"POB42":6,"POB84":9,"ECO1":4,"ECO28":7,"VIV0":7,"VIV7":1,"VIV10":3,"GM_2020_y":"Alto","IMN_2020":0.598765,"Latitud":18.83303,"Longitud":-99.217955},
+            {"CVEGEO":170180030,"Municipio":"Temixco","Poligono":10,"Localidad":"Campo Sotelo","POB1":1379,"POB42":732,"POB84":647,"ECO1":720,"ECO28":398,"VIV0":1515,"VIV7":9,"VIV10":59,"GM_2020_y":"Muy bajo","IMN_2020":0.954321,"Latitud":18.835668,"Longitud":-99.214268},
+            {"CVEGEO":170180052,"Municipio":"Temixco","Poligono":10,"Localidad":"Campo las Martinicas (Las Higueras)","POB1":40,"POB42":19,"POB84":21,"ECO1":18,"ECO28":12,"VIV0":14,"VIV7":3,"VIV10":4,"GM_2020_y":"Alto","IMN_2020":0.576543,"Latitud":18.824019,"Longitud":-99.210747},
+            {"CVEGEO":170180070,"Municipio":"Temixco","Poligono":10,"Localidad":"Colonia Miguel Hidalgo","POB1":565,"POB42":308,"POB84":257,"ECO1":310,"ECO28":163,"VIV0":484,"VIV7":0,"VIV10":17,"GM_2020_y":"Muy bajo","IMN_2020":0.965432,"Latitud":18.841751,"Longitud":-99.21511},
+            {"CVEGEO":170190008,"Municipio":"Tepalcingo","Poligono":11,"Localidad":"Pitzotlán","POB1":43,"POB42":16,"POB84":27,"ECO1":28,"ECO28":6,"VIV0":25,"VIV7":3,"VIV10":3,"GM_2020_y":"Alto","IMN_2020":0.587654,"Latitud":18.586937,"Longitud":-98.893014},
+            {"CVEGEO":170190019,"Municipio":"Tepalcingo","Poligono":11,"Localidad":"Rancho el Bambú (La Presa)","POB1":32,"POB42":18,"POB84":14,"ECO1":16,"ECO28":8,"VIV0":9,"VIV7":0,"VIV10":3,"GM_2020_y":"Alto","IMN_2020":0.565432,"Latitud":18.586967,"Longitud":-98.830795},
+            {"CVEGEO":170190031,"Municipio":"Tepalcingo","Poligono":11,"Localidad":"Colonia Buenos Aires","POB1":46,"POB42":21,"POB84":25,"ECO1":25,"ECO28":12,"VIV0":34,"VIV7":6,"VIV10":5,"GM_2020_y":"Medio","IMN_2020":0.723456,"Latitud":18.583739,"Longitud":-98.845695},
+            {"CVEGEO":170190043,"Municipio":"Tepalcingo","Poligono":11,"Localidad":"Colonia Emiliano Zapata","POB1":29,"POB42":13,"POB84":16,"ECO1":12,"ECO28":10,"VIV0":17,"VIV7":1,"VIV10":5,"GM_2020_y":"Alto","IMN_2020":0.574321,"Latitud":18.588799,"Longitud":-98.854231},
+            {"CVEGEO":170190051,"Municipio":"Tepalcingo","Poligono":11,"Localidad":"La Joya","POB1":20,"POB42":8,"POB84":12,"ECO1":8,"ECO28":9,"VIV0":9,"VIV7":3,"VIV10":1,"GM_2020_y":"Alto","IMN_2020":0.589876,"Latitud":18.588022,"Longitud":-98.839349},
+            {"CVEGEO":170220012,"Municipio":"Tetela del Volcan","Poligono":12,"Localidad":"El Malinal","POB1":29,"POB42":15,"POB84":14,"ECO1":19,"ECO28":0,"VIV0":8,"VIV7":5,"VIV10":5,"GM_2020_y":"Alto","IMN_2020":0.576543,"Latitud":18.907641,"Longitud":-98.728682},
+            {"CVEGEO":170240002,"Municipio":"Tlaltizapan de Zapata","Poligono":13,"Localidad":"Acamilpa","POB1":1885,"POB42":961,"POB84":924,"ECO1":796,"ECO28":729,"VIV0":751,"VIV7":29,"VIV10":136,"GM_2020_y":"Muy bajo","IMN_2020":0.943210,"Latitud":18.715474,"Longitud":-99.159442},
+            {"CVEGEO":170240080,"Municipio":"Tlaltizapan de Zapata","Poligono":13,"Localidad":"Colonia Francisco Javier Mina","POB1":38,"POB42":20,"POB84":18,"ECO1":16,"ECO28":15,"VIV0":38,"VIV7":2,"VIV10":3,"GM_2020_y":"Alto","IMN_2020":0.587654,"Latitud":18.711297,"Longitud":-99.136884},
+            {"CVEGEO":170240084,"Municipio":"Tlaltizapan de Zapata","Poligono":13,"Localidad":"El Texcal","POB1":54,"POB42":24,"POB84":30,"ECO1":26,"ECO28":10,"VIV0":13,"VIV7":4,"VIV10":8,"GM_2020_y":"Alto","IMN_2020":0.576543,"Latitud":18.714769,"Longitud":-99.161939},
+            {"CVEGEO":170240010,"Municipio":"Tlaltizapan de Zapata","Poligono":13,"Localidad":"Pueblo Nuevo","POB1":1280,"POB42":636,"POB84":644,"ECO1":616,"ECO28":424,"VIV0":449,"VIV7":17,"VIV10":86,"GM_2020_y":"Muy bajo","IMN_2020":0.932109,"Latitud":18.70040443,"Longitud":-99.15200065},
+            {"CVEGEO":170250012,"Municipio":"Tlaquiltenango","Poligono":14,"Localidad":"Lorenzo Vázquez (Santa Cruz)","POB1":837,"POB42":429,"POB84":408,"ECO1":400,"ECO28":243,"VIV0":344,"VIV7":10,"VIV10":74,"GM_2020_y":"Bajo","IMN_2020":0.843210,"Latitud":18.573944,"Longitud":-99.073561},
+            {"CVEGEO":170250038,"Municipio":"Tlaquiltenango","Poligono":14,"Localidad":"Los Dormidos","POB1":38,"POB42":17,"POB84":21,"ECO1":20,"ECO28":10,"VIV0":17,"VIV7":6,"VIV10":5,"GM_2020_y":"Alto","IMN_2020":0.587654,"Latitud":18.60427,"Longitud":-99.079036},
+            {"CVEGEO":170260006,"Municipio":"Tlayacapan","Poligono":15,"Localidad":"Nacatongo","POB1":1136,"POB42":571,"POB84":565,"ECO1":626,"ECO28":208,"VIV0":378,"VIV7":18,"VIV10":139,"GM_2020_y":"Bajo","IMN_2020":0.854321,"Latitud":18.946595,"Longitud":-98.980044},
+            {"CVEGEO":170260017,"Municipio":"Tlayacapan","Poligono":15,"Localidad":"Colonia Texalo (La Cerámica)","POB1":361,"POB42":194,"POB84":167,"ECO1":197,"ECO28":100,"VIV0":155,"VIV7":9,"VIV10":34,"GM_2020_y":"Muy bajo","IMN_2020":0.921098,"Latitud":18.941981,"Longitud":-98.976336},
+            {"CVEGEO":170260034,"Municipio":"Tlayacapan","Poligono":15,"Localidad":"Colonia Joyas del Astillero","POB1":93,"POB42":42,"POB84":51,"ECO1":37,"ECO28":29,"VIV0":139,"VIV7":7,"VIV10":9,"GM_2020_y":"Alto","IMN_2020":0.576543,"Latitud":18.938765,"Longitud":-98.950523},
+            {"CVEGEO":170260018,"Municipio":"Tlayacapan","Poligono":15,"Localidad":"Colonia 3 de Mayo","POB1":273,"POB42":133,"POB84":140,"ECO1":100,"ECO28":91,"VIV0":72,"VIV7":4,"VIV10":31,"GM_2020_y":"Medio","IMN_2020":0.732109,"Latitud":18.97855611,"Longitud":-98.9651899},
+            {"CVEGEO":170280085,"Municipio":"Xochitepec","Poligono":16,"Localidad":"Colonia Loma Bonita","POB1":12,"POB42":5,"POB84":7,"ECO1":6,"ECO28":4,"VIV0":4,"VIV7":0,"VIV10":0,"GM_2020_y":"Muy bajo","IMN_2020":0.912345,"Latitud":18.812272,"Longitud":-99.267215},
+            {"CVEGEO":170280074,"Municipio":"Xochitepec","Poligono":16,"Localidad":"Loma del Tepehuaje","POB1":15,"POB42":7,"POB84":8,"ECO1":7,"ECO28":5,"VIV0":10,"VIV7":1,"VIV10":2,"GM_2020_y":"Muy alto","IMN_2020":0.412345,"Latitud":18.808304,"Longitud":-99.261274},
+            {"CVEGEO":170280075,"Municipio":"Xochitepec","Poligono":16,"Localidad":"Plan de Tlazala","POB1":25,"POB42":11,"POB84":14,"ECO1":14,"ECO28":5,"VIV0":9,"VIV7":1,"VIV10":3,"GM_2020_y":"Bajo","IMN_2020":0.823456,"Latitud":18.799124,"Longitud":-99.25071},
+            {"CVEGEO":170280076,"Municipio":"Xochitepec","Poligono":16,"Localidad":"La Presa","POB1":28,"POB42":10,"POB84":18,"ECO1":14,"ECO28":4,"VIV0":6,"VIV7":1,"VIV10":3,"GM_2020_y":"Muy alto","IMN_2020":0.423456,"Latitud":18.793698,"Longitud":-99.257271},
+            {"CVEGEO":170280111,"Municipio":"Xochitepec","Poligono":16,"Localidad":"Colonia las Flores","POB1":906,"POB42":452,"POB84":454,"ECO1":446,"ECO28":248,"VIV0":317,"VIV7":41,"VIV10":110,"GM_2020_y":"Bajo","IMN_2020":0.865432,"Latitud":18.809918,"Longitud":-99.252455},
+            {"CVEGEO":170280073,"Municipio":"Xochitepec","Poligono":16,"Localidad":"Loma el Encanto","POB1":226,"POB42":117,"POB84":109,"ECO1":117,"ECO28":44,"VIV0":87,"VIV7":10,"VIV10":27,"GM_2020_y":"Medio","IMN_2020":0.743210,"Latitud":18.79538362,"Longitud":-99.25043255},
+            {"CVEGEO":170290014,"Municipio":"Yautepec","Poligono":17,"Localidad":"San Isidro","POB1":1153,"POB42":599,"POB84":554,"ECO1":559,"ECO28":338,"VIV0":525,"VIV7":18,"VIV10":111,"GM_2020_y":"Muy bajo","IMN_2020":0.932109,"Latitud":18.822442,"Longitud":-99.094012},
+            {"CVEGEO":170290117,"Municipio":"Yautepec","Poligono":17,"Localidad":"El Fortín","POB1":208,"POB42":104,"POB84":104,"ECO1":92,"ECO28":66,"VIV0":89,"VIV7":13,"VIV10":24,"GM_2020_y":"Alto","IMN_2020":0.587654,"Latitud":18.825045,"Longitud":-99.104388},
+            {"CVEGEO":170290133,"Municipio":"Yautepec","Poligono":17,"Localidad":"Campo la Tehuixtlera","POB1":227,"POB42":114,"POB84":113,"ECO1":113,"ECO28":74,"VIV0":140,"VIV7":9,"VIV10":23,"GM_2020_y":"Medio","IMN_2020":0.721098,"Latitud":18.842899,"Longitud":-99.104523},
+            {"CVEGEO":170290172,"Municipio":"Yautepec","Poligono":17,"Localidad":"El Fortín Dos","POB1":52,"POB42":31,"POB84":21,"ECO1":23,"ECO28":15,"VIV0":23,"VIV7":4,"VIV10":5,"GM_2020_y":"Alto","IMN_2020":0.576543,"Latitud":18.831632,"Longitud":-99.105726},
+            {"CVEGEO":170300015,"Municipio":"Yecapixtla","Poligono":18,"Localidad":"Texcala","POB1":1812,"POB42":917,"POB84":895,"ECO1":1038,"ECO28":339,"VIV0":584,"VIV7":26,"VIV10":211,"GM_2020_y":"Bajo","IMN_2020":0.843210,"Latitud":18.934575,"Longitud":-98.796261},
+            {"CVEGEO":170300016,"Municipio":"Yecapixtla","Poligono":18,"Localidad":"Tezontetelco","POB1":235,"POB42":122,"POB84":113,"ECO1":147,"ECO28":38,"VIV0":90,"VIV7":6,"VIV10":20,"GM_2020_y":"Bajo","IMN_2020":0.832109,"Latitud":18.931712,"Longitud":-98.810118},
+            {"CVEGEO":170300020,"Municipio":"Yecapixtla","Poligono":18,"Localidad":"Los Capulines","POB1":365,"POB42":180,"POB84":185,"ECO1":190,"ECO28":79,"VIV0":109,"VIV7":18,"VIV10":48,"GM_2020_y":"Alto","IMN_2020":0.587654,"Latitud":18.919654,"Longitud":-98.815897},
+            {"CVEGEO":170300026,"Municipio":"Yecapixtla","Poligono":18,"Localidad":"Zacahuacatla","POB1":81,"POB42":38,"POB84":43,"ECO1":59,"ECO28":5,"VIV0":39,"VIV7":2,"VIV10":8,"GM_2020_y":"Bajo","IMN_2020":0.821098,"Latitud":18.912821,"Longitud":-98.813228},
+            {"CVEGEO":170300031,"Municipio":"Yecapixtla","Poligono":18,"Localidad":"La Hacienda","POB1":75,"POB42":42,"POB84":33,"ECO1":44,"ECO28":10,"VIV0":32,"VIV7":2,"VIV10":14,"GM_2020_y":"Bajo","IMN_2020":0.812345,"Latitud":18.922312,"Longitud":-98.807784},
+            {"CVEGEO":170310032,"Municipio":"Zacatepec","Poligono":19,"Localidad":"Ampliación Plutarco Elías Calles","POB1":21,"POB42":9,"POB84":12,"ECO1":13,"ECO28":2,"VIV0":10,"VIV7":4,"VIV10":1,"GM_2020_y":"Medio","IMN_2020":0.732109,"Latitud":18.670821,"Longitud":-99.212621},
+            {"CVEGEO":170310033,"Municipio":"Zacatepec","Poligono":19,"Localidad":"El Bonete","POB1":31,"POB42":17,"POB84":14,"ECO1":12,"ECO28":9,"VIV0":18,"VIV7":3,"VIV10":3,"GM_2020_y":"Muy alto","IMN_2020":0.412345,"Latitud":18.673725,"Longitud":-99.197444},
+            {"CVEGEO":170330007,"Municipio":"Temoac","Poligono":20,"Localidad":"La Joya [Campo]","POB1":26,"POB42":14,"POB84":12,"ECO1":13,"ECO28":10,"VIV0":12,"VIV7":0,"VIV10":2,"GM_2020_y":"Bajo","IMN_2020":0.823456,"Latitud":18.781684,"Longitud":-98.788481},
+            {"CVEGEO":170330014,"Municipio":"Temoac","Poligono":20,"Localidad":"El Tecorralito","POB1":5,"POB42":2,"POB84":3,"ECO1":4,"ECO28":1,"VIV0":11,"VIV7":0,"VIV10":0,"GM_2020_y":"Alto","IMN_2020":0.576543,"Latitud":18.777061,"Longitud":-98.792437},
+            {"CVEGEO":170330017,"Municipio":"Temoac","Poligono":20,"Localidad":"Barrio San Martín","POB1":24,"POB42":14,"POB84":10,"ECO1":9,"ECO28":6,"VIV0":8,"VIV7":1,"VIV10":2,"GM_2020_y":"Muy bajo","IMN_2020":0.912345,"Latitud":18.777527,"Longitud":-98.779047},
+            {"CVEGEO":170330020,"Municipio":"Temoac","Poligono":20,"Localidad":"Campo Santa Lucía","POB1":25,"POB42":8,"POB84":17,"ECO1":13,"ECO28":4,"VIV0":16,"VIV7":0,"VIV10":4,"GM_2020_y":"Bajo","IMN_2020":0.834567,"Latitud":18.762684,"Longitud":-98.779519},
+            {"CVEGEO":170330022,"Municipio":"Temoac","Poligono":20,"Localidad":"Barrio San Martín","POB1":14,"POB42":8,"POB84":6,"ECO1":8,"ECO28":3,"VIV0":7,"VIV7":0,"VIV10":1,"GM_2020_y":"Muy bajo","IMN_2020":0.923456,"Latitud":18.769856,"Longitud":-98.789247},
+            {"CVEGEO":170340003,"Municipio":"Coatetelco","Poligono":21,"Localidad":"Campo el Llanito","POB1":63,"POB42":35,"POB84":28,"ECO1":39,"ECO28":11,"VIV0":18,"VIV7":4,"VIV10":7,"GM_2020_y":"Bajo","IMN_2020":0.843210,"Latitud":18.729847,"Longitud":-99.3359},
+            {"CVEGEO":170340004,"Municipio":"Coatetelco","Poligono":21,"Localidad":"Campo la Candelaria","POB1":29,"POB42":16,"POB84":13,"ECO1":12,"ECO28":7,"VIV0":9,"VIV7":2,"VIV10":1,"GM_2020_y":"Medio","IMN_2020":0.732109,"Latitud":18.735344,"Longitud":-99.332552},
+            {"CVEGEO":170340005,"Municipio":"Coatetelco","Poligono":21,"Localidad":"Colonia 3 de Mayo","POB1":221,"POB42":116,"POB84":105,"ECO1":117,"ECO28":32,"VIV0":78,"VIV7":23,"VIV10":35,"GM_2020_y":"Medio","IMN_2020":0.743210,"Latitud":18.73975,"Longitud":-99.326157},
+            {"CVEGEO":170340006,"Municipio":"Coatetelco","Poligono":21,"Localidad":"Colonia Benito Juárez","POB1":101,"POB42":53,"POB84":48,"ECO1":38,"ECO28":36,"VIV0":36,"VIV7":8,"VIV10":14,"GM_2020_y":"Alto","IMN_2020":0.587654,"Latitud":18.725195,"Longitud":-99.314661},
+            {"CVEGEO":170340007,"Municipio":"Coatetelco","Poligono":21,"Localidad":"Colonia San Isidro","POB1":13,"POB42":8,"POB84":5,"ECO1":5,"ECO28":5,"VIV0":15,"VIV7":1,"VIV10":2,"GM_2020_y":"Medio","IMN_2020":0.721098,"Latitud":18.72163,"Longitud":-99.305718},
+            {"CVEGEO":170340012,"Municipio":"Coatetelco","Poligono":21,"Localidad":"General Pedro Saavedra","POB1":338,"POB42":180,"POB84":158,"ECO1":112,"ECO28":127,"VIV0":102,"VIV7":13,"VIV10":37,"GM_2020_y":"Medio","IMN_2020":0.732109,"Latitud":18.738186,"Longitud":-99.326131},
+            {"CVEGEO":170340013,"Municipio":"Coatetelco","Poligono":21,"Localidad":"La Cuahulotera","POB1":18,"POB42":9,"POB84":9,"ECO1":12,"ECO28":3,"VIV0":11,"VIV7":2,"VIV10":2,"GM_2020_y":"Muy alto","IMN_2020":0.412345,"Latitud":18.722094,"Longitud":-99.287751},
+            {"CVEGEO":170350006,"Municipio":"Xoxocotla","Poligono":22,"Localidad":"Camino de San Juanes","POB1":19,"POB42":10,"POB84":9,"ECO1":9,"ECO28":6,"VIV0":8,"VIV7":0,"VIV10":3,"GM_2020_y":"Alto","IMN_2020":0.587654,"Latitud":18.667152,"Longitud":-99.243829},
+            {"CVEGEO":170350009,"Municipio":"Xoxocotla","Poligono":22,"Localidad":"Campo los Sauces","POB1":17,"POB42":5,"POB84":12,"ECO1":10,"ECO28":6,"VIV0":19,"VIV7":2,"VIV10":0,"GM_2020_y":"Muy bajo","IMN_2020":0.912345,"Latitud":18.664559,"Longitud":-99.253969},
+            {"CVEGEO":170350010,"Municipio":"Xoxocotla","Poligono":22,"Localidad":"La Pintora","POB1":165,"POB42":79,"POB84":86,"ECO1":86,"ECO28":48,"VIV0":70,"VIV7":22,"VIV10":15,"GM_2020_y":"Alto","IMN_2020":0.576543,"Latitud":18.708168,"Longitud":-99.25268},
+            {"CVEGEO":170350015,"Municipio":"Xoxocotla","Poligono":22,"Localidad":"Morelos","POB1":19,"POB42":9,"POB84":10,"ECO1":9,"ECO28":5,"VIV0":8,"VIV7":5,"VIV10":4,"GM_2020_y":"Alto","IMN_2020":0.587654,"Latitud":18.68214,"Longitud":-99.25697},
+            {"CVEGEO":170350018,"Municipio":"Xoxocotla","Poligono":22,"Localidad":"El Faro","POB1":21,"POB42":13,"POB84":8,"ECO1":10,"ECO28":7,"VIV0":9,"VIV7":2,"VIV10":2,"GM_2020_y":"Alto","IMN_2020":0.576543,"Latitud":18.673954,"Longitud":-99.257534},
+            {"CVEGEO":170350019,"Municipio":"Xoxocotla","Poligono":22,"Localidad":"Fábrica de Mármol (Kilómetro 2)","POB1":76,"POB42":36,"POB84":40,"ECO1":31,"ECO28":22,"VIV0":21,"VIV7":8,"VIV10":12,"GM_2020_y":"Alto","IMN_2020":0.587654,"Latitud":18.669814,"Longitud":-99.257522},
+            {"CVEGEO":170350026,"Municipio":"Xoxocotla","Poligono":22,"Localidad":"Techichilco","POB1":42,"POB42":17,"POB84":25,"ECO1":18,"ECO28":15,"VIV0":10,"VIV7":5,"VIV10":8,"GM_2020_y":"Alto","IMN_2020":0.576543,"Latitud":18.685411,"Longitud":-99.235123},
+            {"CVEGEO":170360003,"Municipio":"Hueyapan","Poligono":23,"Localidad":"Amialtenco","POB1":26,"POB42":14,"POB84":12,"ECO1":10,"ECO28":3,"VIV0":10,"VIV7":0,"VIV10":3,"GM_2020_y":"Alto","IMN_2020":0.587654,"Latitud":18.86731,"Longitud":-98.708483},
+            {"CVEGEO":170360010,"Municipio":"Hueyapan","Poligono":23,"Localidad":"Matlacotla","POB1":45,"POB42":23,"POB84":22,"ECO1":27,"ECO28":7,"VIV0":19,"VIV7":4,"VIV10":4,"GM_2020_y":"Bajo","IMN_2020":0.821098,"Latitud":18.869758,"Longitud":-98.697471}
+        ];
+
+        // --- MAP INSTANCE & MARKER LAYER---
+        let map;
+        let markersLayer = null; // To keep track of the current markers on the map
+        let currentData = null; 
+
+        // --- DOM ELEMENTS ---
+        const municipioFilter = document.getElementById('municipio-filter');
+        const localidadFilter = document.getElementById('localidad-filter');
+        const municipioFilterMobile = document.getElementById('municipio-filter-mobile');
+        const localidadFilterMobile = document.getElementById('localidad-filter-mobile');
+        const printButton = document.getElementById('print-button');
+        const printButtonMobile = document.getElementById('print-button-mobile');
+        const comparisonTableBody = document.getElementById('comparison-table-body');
+        const mainHeaderTitle = document.getElementById('main-header-title');
+
+        // --- FUNCTIONS ---
+
+        function initMap() {
+            const streetMap = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            });
+            const satelliteMap = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: 'Tiles &copy; Esri'
+            });
+            map = L.map('map', {
+                center: [18.85, -99.15],
+                zoom: 9,
+                layers: [streetMap]
+            });
+            const baseLayers = { "Mapa de Calles": streetMap, "Vista Satelital": satelliteMap };
+            L.control.layers(baseLayers).addTo(map);
+        }
+
+        function populateMunicipioFilter() {
+            const filters = [municipioFilter, municipioFilterMobile];
+            filters.forEach(filter => {
+                filter.innerHTML = '<option value="TODOS">Todos los Municipios</option>';
+                const municipios = [...new Set(dataSet.map(item => item.Municipio))].sort();
+                municipios.forEach(m => {
+                    const option = document.createElement('option');
+                    option.value = m;
+                    option.textContent = m;
+                    filter.appendChild(option);
+                });
+            });
+        }
+        
+        function updateLocalidadFilter(sourceFilter) {
+            const selectedMunicipio = sourceFilter.value;
+            const targetFilters = [localidadFilter, localidadFilterMobile];
+            
+            let availableLocalidades;
+            if (selectedMunicipio === 'TODOS') {
+                availableLocalidades = dataSet;
+            } else {
+                availableLocalidades = dataSet.filter(item => item.Municipio === selectedMunicipio);
+            }
+            
+            targetFilters.forEach(filter => {
+                filter.innerHTML = '';
+                if (availableLocalidades.length > 0) {
+                    availableLocalidades.forEach(l => {
+                        const option = document.createElement('option');
+                        option.value = l.CVEGEO;
+                        option.textContent = `${l.Localidad}`;
+                        filter.appendChild(option);
+                    });
+                } else {
+                    filter.innerHTML = '<option value="">No hay resultados</option>';
+                }
+            });
+            
+            if (markersLayer) map.removeLayer(markersLayer);
+
+            const markers = availableLocalidades
+                .filter(l => l.Latitud && l.Longitud)
+                .map(l => {
+                    const marker = L.marker([l.Latitud, l.Longitud]).bindPopup(`<b>${l.Localidad}</b>`);
+                    marker.cvegeo = l.CVEGEO;
+                    return marker;
+                });
+
+            if (markers.length > 0) {
+                markersLayer = L.featureGroup(markers).addTo(map);
+                map.fitBounds(markersLayer.getBounds().pad(0.1));
+            }
+
+            updateDashboard();
+        }
+
+        function clearDashboard() {
+            currentData = null;
+            mainHeaderTitle.textContent = 'Seleccione una localidad';
+            document.getElementById('info-municipio').textContent = '-';
+            document.getElementById('info-marginacion').textContent = '-';
+            map.setView([18.85, -99.15], 9);
+            if (markersLayer) map.removeLayer(markersLayer);
+            comparisonTableBody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-gray-500">Seleccione un municipio para ver datos.</td></tr>`;
+        }
+        
+        function populateComparisonTable(data) {
+            comparisonTableBody.innerHTML = ''; // Clear existing rows
+            if (data.length === 0) {
+                comparisonTableBody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-gray-500">No hay localidades para este municipio.</td></tr>`;
+                return;
+            }
+            data.forEach(item => {
+                const row = `
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">${item.Localidad || '-'}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-right">${(item.POB1 || 0).toLocaleString()}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-right">${(item.POB42 || 0).toLocaleString()}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-right">${(item.POB84 || 0).toLocaleString()}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-right">${(item.VIV0 || 0).toLocaleString()}</td>
+                    </tr>
+                `;
+                comparisonTableBody.innerHTML += row;
+            });
+        }
+
+        function updateDashboard() {
+            const selectedCvegeo = parseInt(localidadFilter.value);
+            currentData = dataSet.find(item => item.CVEGEO === selectedCvegeo);
+
+            if (!currentData) {
+                clearDashboard();
+                return;
+            }
+            
+            const currentMunicipio = currentData.Municipio;
+            const localidadesInMunicipio = dataSet.filter(item => item.Municipio === currentMunicipio);
+            
+            mainHeaderTitle.textContent = currentData.Localidad;
+            document.getElementById('info-municipio').textContent = `Polígono ${currentData.Poligono}` || '-';
+            document.getElementById('info-marginacion').textContent = currentData.IMN_2020 ? currentData.IMN_2020.toFixed(5) : (currentData.GM_2020_y || '-');
+
+            if (currentData.Latitud && currentData.Longitud) {
+                map.setView([currentData.Latitud, currentData.Longitud], 14);
+                
+                if (markersLayer) {
+                    markersLayer.eachLayer(marker => {
+                        if (marker.cvegeo === selectedCvegeo) {
+                            marker.openPopup();
+                        }
+                    });
+                }
+            }
+            
+            populateComparisonTable(localidadesInMunicipio);
+        }
+        
+        function generatePrintReport() {
+            if (!currentData) {
+                alert("Por favor, seleccione una localidad para generar un reporte.");
+                return;
+            }
+
+            const reportContainer = document.getElementById('print-report-container');
+            const now = new Date();
+            const dateOptions = { year: 'numeric', month: 'long', day: 'numeric' };
+            const timeOptions = { hour: '2-digit', minute: '2-digit', hour12: true };
+            const localidadesInMunicipio = dataSet.filter(item => item.Municipio === currentData.Municipio);
+
+            const tableRows = localidadesInMunicipio.map(item => `
+                <tr>
+                    <td>${item.Localidad || '-'}</td>
+                    <td class="text-right">${(item.POB1 || 0).toLocaleString()}</td>
+                    <td class="text-right">${(item.POB42 || 0).toLocaleString()}</td>
+                    <td class="text-right">${(item.POB84 || 0).toLocaleString()}</td>
+                    <td class="text-right">${(item.VIV0 || 0).toLocaleString()}</td>
+                </tr>
+            `).join('');
+
+            const reportHTML = `
+                <div class="print-header">
+                    <img src="https://cdn.prod.website-files.com/66d75f3897a0c14fc42017af/67d124efdfc13b41bfb24b65_Logo_Inicio.svg" alt="Logo" class="h-16">
+                    <div class="print-title-section">
+                        <h1 class="text-2xl font-bold">Reporte Sociodemográfico</h1>
+                        <p class="text-sm">Localidad: ${currentData.Localidad} | Municipio: ${currentData.Municipio}</p>
+                        <p class="text-xs text-gray-500">Generado el: ${now.toLocaleDateString('es-MX', dateOptions)} a las ${now.toLocaleTimeString('es-MX', timeOptions)}</p>
+                    </div>
+                </div>
+
+                <div>
+                    <h2 class="print-section-title">Datos Clave de la Localidad</h2>
+                    <div class="print-kpi-grid">
+                        <div class="print-card">
+                            <h3 class="print-card-title">Polígono</h3>
+                            <p class="print-card-value">${currentData.Poligono || '-'}</p>
+                        </div>
+                        <div class="print-card">
+                            <h3 class="print-card-title">Índice de Marginación</h3>
+                            <p class="print-card-value">${currentData.IMN_2020 ? currentData.IMN_2020.toFixed(5) : '-'}</p>
+                        </div>
+                    </div>
+
+                    <h2 class="print-section-title">Detalle de la Localidad Seleccionada</h2>
+                    <div class="print-kpi-grid">
+                        <div class="print-card">
+                            <h3 class="print-card-title">Población Total</h3>
+                            <p class="print-card-value">${(currentData.POB1 || 0).toLocaleString()}</p>
+                        </div>
+                         <div class="print-card">
+                            <h3 class="print-card-title">Total Viviendas</h3>
+                            <p class="print-card-value">${(currentData.VIV0 || 0).toLocaleString()}</p>
+                        </div>
+                    </div>
+
+                    <h2 class="print-section-title">Cuadro Comparativo del Municipio: ${currentData.Municipio}</h2>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Localidad</th>
+                                <th class="text-right">Pob. Total</th>
+                                <th class="text-right">Pob. Femenina</th>
+                                <th class="text-right">Pob. Masculina</th>
+                                <th class="text-right">Viviendas</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${tableRows}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            reportContainer.innerHTML = reportHTML;
+            window.print();
+        }
+
+        // --- EVENT LISTENERS ---
+        const allPrintButtons = [printButton, printButtonMobile];
+        const allMunicipioFilters = [municipioFilter, municipioFilterMobile];
+        const allLocalidadFilters = [localidadFilter, localidadFilterMobile];
+
+        allMunicipioFilters.forEach(filter => {
+            filter.addEventListener('change', (e) => {
+                const sourceValue = e.target.value;
+                allMunicipioFilters.forEach(f => f.value = sourceValue); // Sync filters
+                updateLocalidadFilter(e.target);
+            });
+        });
+
+        allLocalidadFilters.forEach(filter => {
+            filter.addEventListener('change', (e) => {
+                 const sourceValue = e.target.value;
+                allLocalidadFilters.forEach(f => f.value = sourceValue); // Sync filters
+                updateDashboard();
+            });
+        });
+
+        allPrintButtons.forEach(button => {
+            button.addEventListener('click', generatePrintReport);
+        });
+
+        // --- INITIALIZATION ---
+        document.addEventListener('DOMContentLoaded', () => {
+            initMap();
+            populateMunicipioFilter();
+            updateLocalidadFilter(municipioFilter);
+        });
+
+    </script>
+</body>
+</html>
